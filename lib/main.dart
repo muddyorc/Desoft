@@ -1,55 +1,66 @@
 import 'package:flutter/material.dart';
 
-void main() => runApp(MaterialApp(home: CarrosselFormularios()));
-
-class CarrosselFormularios extends StatefulWidget {
-  @override
-  _CarrosselFormulariosState createState() => _CarrosselFormulariosState();
+void main() {
+  runApp(MyApp());
 }
 
-class _CarrosselFormulariosState extends State<CarrosselFormularios> {
-  List<FormularioData> formularios = List.generate(5, (_) => FormularioData());
+class AuthService {
+  static bool isAuthenticated = false; // simulação simples
+}
 
-  int calcularIdade(DateTime nascimento) {
-    final hoje = DateTime.now();
-    int idade = hoje.year - nascimento.year;
-    if (hoje.month < nascimento.month ||
-        (hoje.month == nascimento.month && hoje.day < nascimento.day)) {
-      idade--;
-    }
-    return idade;
-  }
+class MyApp extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Rotas Nomeadas',
+      debugShowCheckedModeBanner: false,
+      initialRoute: '/login',
+      onGenerateRoute: (settings) {
+        // Middleware simples para checar autenticação
+        if (settings.name == '/home' || settings.name == '/detalhes') {
+          if (!AuthService.isAuthenticated) {
+            return MaterialPageRoute(
+              builder: (_) => LoginPage(mensagem: "Faça login para continuar!"),
+            );
+          }
+        }
 
-  void _selecionarData(int index) async {
-    DateTime? data = await showDatePicker(
-      context: context,
-      initialDate: DateTime(2000),
-      firstDate: DateTime(1900),
-      lastDate: DateTime.now(),
+        switch (settings.name) {
+          case '/login':
+            return MaterialPageRoute(builder: (_) => LoginPage());
+          case '/home':
+            return MaterialPageRoute(builder: (_) => HomePage());
+          case '/detalhes':
+            final args = settings.arguments as Map<String, dynamic>;
+            return MaterialPageRoute(
+              builder: (_) => DetalhesPage(dados: args),
+            );
+          default:
+            return MaterialPageRoute(
+              builder: (_) => Scaffold(
+                body: Center(child: Text("Rota não encontrada")),
+              ),
+            );
+        }
+      },
     );
-    if (data != null) {
-      setState(() {
-        formularios[index].dataNascimento = data;
-      });
-    }
   }
+}
 
-  void _validarFormulario(int index) {
-    var form = formularios[index];
-    if (form.nome.isEmpty || form.dataNascimento == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Preencha todos os campos")),
-      );
-      return;
-    }
-    int idade = calcularIdade(form.dataNascimento!);
-    if (idade < 18) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Idade deve ser maior que 18 anos")),
-      );
+class LoginPage extends StatelessWidget {
+  final String? mensagem;
+  LoginPage({this.mensagem});
+
+  final TextEditingController _userCtrl = TextEditingController();
+  final TextEditingController _passCtrl = TextEditingController();
+
+  void _login(BuildContext context) {
+    if (_userCtrl.text == "admin" && _passCtrl.text == "123") {
+      AuthService.isAuthenticated = true;
+      Navigator.pushReplacementNamed(context, '/home');
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Formulário válido!")),
+        SnackBar(content: Text("Usuário ou senha inválidos")),
       );
     }
   }
@@ -57,74 +68,79 @@ class _CarrosselFormulariosState extends State<CarrosselFormularios> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text("Carrossel de Formulários")),
+      appBar: AppBar(title: Text("Login")),
       body: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: ListView.builder(
-          scrollDirection: Axis.horizontal,
-          itemCount: formularios.length,
-          itemBuilder: (context, index) {
-            var form = formularios[index];
-            return Container(
-              width: 300,
-              margin: EdgeInsets.symmetric(horizontal: 8),
-              child: Card(
-                elevation: 4,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    children: [
-                      TextFormField(
-                        decoration:
-                            InputDecoration(labelText: "Nome Completo"),
-                        onChanged: (value) => form.nome = value,
-                      ),
-                      SizedBox(height: 10),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(form.dataNascimento == null
-                                ? "Data de Nascimento"
-                                : "${form.dataNascimento!.day}/${form.dataNascimento!.month}/${form.dataNascimento!.year}"),
-                          ),
-                          IconButton(
-                            icon: Icon(Icons.calendar_today),
-                            onPressed: () => _selecionarData(index),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: 10),
-                      DropdownButtonFormField<String>(
-                        value: form.sexo,
-                        decoration: InputDecoration(labelText: "Sexo"),
-                        items: ["Homem", "Mulher"]
-                            .map((s) =>
-                                DropdownMenuItem(value: s, child: Text(s)))
-                            .toList(),
-                        onChanged: (value) => setState(() => form.sexo = value!),
-                      ),
-                      Spacer(),
-                      ElevatedButton(
-                        onPressed: () => _validarFormulario(index),
-                        child: Text("Cadastrar"),
-                      )
-                    ],
-                  ),
-                ),
-              ),
-            );
-          },
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (mensagem != null) Text(mensagem!, style: TextStyle(color: Colors.red)),
+            TextField(controller: _userCtrl, decoration: InputDecoration(labelText: "Usuário")),
+            TextField(controller: _passCtrl, decoration: InputDecoration(labelText: "Senha"), obscureText: true),
+            SizedBox(height: 20),
+            ElevatedButton(onPressed: () => _login(context), child: Text("Entrar")),
+          ],
         ),
       ),
     );
   }
 }
 
-class FormularioData {
-  String nome = '';
-  DateTime? dataNascimento;
-  String sexo = "Homem";
+class HomePage extends StatelessWidget {
+  final Map<String, dynamic> usuario = {
+    "nome": "Julio Cezar",
+    "nascimento": "19/08/2000",
+    "telefone": "(64) 99999-9999"
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text("Home")),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text("Bem-vindo à Home!"),
+            SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pushNamed(context, '/detalhes', arguments: usuario);
+              },
+              child: Text("Ir para Detalhes"),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class DetalhesPage extends StatelessWidget {
+  final Map<String, dynamic> dados;
+  DetalhesPage({required this.dados});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text("Detalhes do Usuário")),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Card(
+          elevation: 4,
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text("Nome: ${dados['nome']}", style: TextStyle(fontSize: 18)),
+                Text("Nascimento: ${dados['nascimento']}"),
+                Text("Telefone: ${dados['telefone']}"),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
